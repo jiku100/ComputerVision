@@ -32,7 +32,6 @@ cv::Mat OoG1;
 cv::Mat hist1[BLOCK_NUM];
 int blockNum1 = 0;
 cv::Point point1[BLOCK_NUM];
-float avgAngle1;
 
 cv::Mat srcImg2;
 cv::Mat coordImg2;
@@ -40,7 +39,6 @@ cv::Mat OoG2;
 cv::Mat hist2[BLOCK_NUM];
 int blockNum2 = 0;
 cv::Point point2[BLOCK_NUM];
-float avgAngle2;
 
 int matchList[BLOCK_NUM];
 
@@ -137,9 +135,10 @@ cv::Mat getGradY(cv::Mat& img) {
 
     return gy;
 }
+
 cv::Mat getOoG(cv::Mat& img) {
     cv::Mat gr;
-    //cv::bilateralFilter(img.clone(), img, 10, 50, 50);
+    cv::bilateralFilter(img.clone(), img, 10, 50, 50);
     phase(getGradX(img), getGradY(img), gr, true);
     return gr;
 }
@@ -155,6 +154,7 @@ cv::Mat getHistogram(cv::Mat& img) {
     calcHist(&img, 1, channels, cv::noArray(), hist, dims, &histSize, ranges);
     return hist;
 }
+
 cv::Mat getBlock(cv::Mat& src, int x, int y) {
     return src(cv::Range(y - BLOCK_RADIUS, y + BLOCK_RADIUS), cv::Range(x - BLOCK_RADIUS, x + BLOCK_RADIUS));
 }
@@ -237,8 +237,8 @@ void loadImg(int mode) {
 
     coordImg1 = srcImg1.clone();
     coordImg2 = srcImg2.clone();
-    cv::cvtColor(srcImg1, srcImg1, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(srcImg2, srcImg2, cv::COLOR_BGR2GRAY);
+    /*cv::cvtColor(srcImg1, srcImg1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(srcImg2, srcImg2, cv::COLOR_BGR2GRAY);*/
 }
 
 void autoSelect(int mode) {
@@ -375,7 +375,7 @@ void showRes() {
     }
 
     for (int i = 0; i < BLOCK_NUM; i++) {
-         cv::line(resImg, point1[i], point2[matchList[i]], cv::Scalar(0, 0, 0), 10);
+        cv::line(resImg, point1[i], point2[matchList[i]], cv::Scalar(0, 0, 0), 10);
     }
 
     cv::namedWindow("res", cv::WINDOW_NORMAL);
