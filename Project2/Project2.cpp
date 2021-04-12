@@ -1,13 +1,10 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
-#include <algorithm>
-
-// left top, left bottom, right bottom, right top 순서대로 클릭해야 함
 
 // OPENCV 함수로 구현: 1, 직접 구현: 0
 
-#define OPENCV_VERSION 1
+#define OPENCV_VERSION 0
 
 #define IMG_SRC "K.jpg"
 #define IMG_DST "BackGround.jpg"
@@ -16,7 +13,7 @@
 #define WINDOW_NAME_RES "result"
 
 std::vector<cv::Point2f> srcQuad, dstQuad;
-cv::Mat src, dst, res, H;
+cv::Mat pureSrc, src, dst, res, H;
 
 int srcClickNum = 0, dstClickNum = 0;
 
@@ -36,6 +33,7 @@ void warp();
 int main(void) {
     src = cv::imread(IMG_SRC);
     dst = cv::imread(IMG_DST);
+    pureSrc = src.clone();
     res = dst.clone();
     cv::namedWindow(WINDOW_NAME_SRC);
     cv::namedWindow(WINDOW_NAME_DST);
@@ -55,7 +53,7 @@ void opencv_warp() {
     cv::Mat H = cv::getPerspectiveTransform(srcQuad, dstQuad);
     cv::Mat temp;
     cv::Mat result;
-    warpPerspective(src, temp, H, dst.size(), cv::INTER_LINEAR);
+    warpPerspective(pureSrc, temp, H, dst.size(), cv::INTER_LINEAR);
     cv::Mat mask = cv::Mat::zeros(dst.size(), CV_8UC1);
     std::vector<cv::Point> tmp_point;
     for (cv::Point2f p : dstQuad) {
@@ -63,7 +61,7 @@ void opencv_warp() {
     }
     cv::fillConvexPoly(mask, tmp_point, cv::Scalar(255));
     temp.copyTo(res, mask);
-  
+
     cv::namedWindow(WINDOW_NAME_RES);
     cv::imshow(WINDOW_NAME_RES, res);
 
@@ -125,12 +123,12 @@ cv::Mat getHMat() {
 }
 
 /**해당 점이 내 선택범위 내에 있는지 판별*/
-bool isInside(cv::Point2f targetPoint) {
+bool isInside(cv::Point3f targetPoint) {
     int crosses = 0;
     for (int i = 0; i < 4; i++) {
         int j = (i + 1) % 4;
-        if ((srcQuad[i].y > targetPoint.y) != (srcQuad[j].y > targetPoint.y)) {
-            float atX = (srcQuad[j].x - srcQuad[i].x) * (targetPoint.y - srcQuad[i].y) / (srcQuad[j].y - srcQuad[i].y) + srcQuad[i].x;
+        if ((dstQuad[i].y > targetPoint.y) != (dstQuad[j].y > targetPoint.y)) {
+            float atX = (dstQuad[j].x - dstQuad[i].x) * (targetPoint.y - dstQuad[i].y) / (dstQuad[j].y - dstQuad[i].y) + dstQuad[i].x;
             if (targetPoint.x < atX)
                 crosses++;
         }
@@ -149,6 +147,10 @@ void warp() {
     for (int y = 0; y < res.rows; y++) {
         for (int x = 0; x < res.cols; x++) {
             cv::Point3f coor(x, y, 1);
+            if (!isInside(coor)) {
+                continue;
+            }
+
             cv::Mat tmp_coor = (H_inv * cv::Mat(coor));
             tmp_coor /= tmp_coor.at<float>(2, 0);
 
@@ -158,14 +160,12 @@ void warp() {
             float a = trans_coor.x - tx;
             float b = trans_coor.y - ty;
 
-            if (isInside(cv::Point2f(tx, ty))) {
-                for (int i = 0; i < 3; i++) {
-                    res.at<cv::Vec3b>(y, x)[i] = cvRound(
-                        (1.0 - a) * (1.0 - b) * src.at<cv::Vec3b>(ty, tx)[i] +
-                        a * (1.0 - b) * src.at<cv::Vec3b>(ty, tx + 1)[i] +
-                        a * b * src.at<cv::Vec3b>(ty + 1, tx + 1)[i] +
-                        (1.0 - a) * b * src.at<cv::Vec3b>(ty + 1, tx)[i]);
-                }
+            for (int i = 0; i < 3; i++) {
+                res.at<cv::Vec3b>(y, x)[i] = cvRound(
+                    (1.0 - a) * (1.0 - b) * pureSrc.at<cv::Vec3b>(ty, tx)[i] +
+                    a * (1.0 - b) * pureSrc.at<cv::Vec3b>(ty, tx + 1)[i] +
+                    a * b * pureSrc.at<cv::Vec3b>(ty + 1, tx + 1)[i] +
+                    (1.0 - a) * b * pureSrc.at<cv::Vec3b>(ty + 1, tx)[i]);
             }
         }
     }
